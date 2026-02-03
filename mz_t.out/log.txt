@@ -1,0 +1,88 @@
+//
+// ____________________________________________________________________ 
+//|                                                                    |
+//|                            Mumax3-cQED                             |
+//|____________________________________________________________________|
+//|                                                                    |
+//|          Like Mumax3 but for a magnet coupled to a cavity          |
+//|                Mumax-cQED 1.0 (based on mumax 3.10)                |
+//|____________________________________________________________________|
+//
+//mumax 3.10 [linux_amd64 go1.13.8(gc) CUDA-12.6]
+//GPU info: CUDA 13000 NVIDIA GeForce RTX 3070(8191MB) cc8.6, using cc=75 PTX
+//(c) Sergio Martínez-Losa del Rincón, INMA, Universidad de Zaragoza, Spain
+//(c) Arne Vansteenkiste, Dynamat LAB, Ghent University, Belgium
+//This is free software without any warranty. See license.txt
+//********************************************************************//
+//  If you use mumax3-cQED in any work or publication,                //
+//  we kindly ask you to cite the references in references.bib        //
+//********************************************************************//
+//output directory: mz_t.out/
+w := 100e-9
+h := 50e-9
+R := 550e-9
+gap := 20e-9
+cx := 10e-9
+cy := 10e-9
+cz := h
+Nx := 260
+Ny := 180
+Nz := 1
+SetGridSize(Nx, Ny, Nz)
+SetCellSize(cx, cy, cz)
+Lx := Nx * cx
+Msat = 140e3
+Aex = 3.5e-12
+alpha = 2e-4
+ringRout := R + w/2
+ringRin := R - w/2
+ring := cylinder(2*ringRout, h).sub(cylinder(2*ringRin, h))
+wg_center_y := -(R + w/2 + gap + w/2)
+waveguide := rect(Lx, w).transl(0, wg_center_y, 0)
+SetGeom(ring.add(waveguide))
+DefRegion(1, waveguide)
+DefRegion(2, ring)
+m.SetRegion(1, Uniform(1, 0, 0))
+m.SetRegion(2, Vortex(1, 1))
+SaveAs(m, "m_init")
+autosave(m, 1e-9)
+B_ext = vector(30e-3, 0, 0)
+f := 2.70e9
+be := 1e-3
+src_len := 40e-9
+src_x0 := -Lx/2 + 150e-9
+src_x1 := src_x0 + src_len
+src_y0 := wg_center_y - w/2
+src_y1 := wg_center_y + w/2
+mask := newVectorMask(Nx, Ny, Nz)
+for i := 0; i < Nx; i++ {
+	for j := 0; j < Ny; j++ {
+		r := index2coord(i, j, 0)
+		x := r.X()
+		y := r.Y()
+		if (x >= src_x0) && (x <= src_x1) && (y >= src_y0) && (y <= src_y1) {
+			mask.setVector(i, j, 0, vector(0, 0, 1))
+		}
+	}
+}
+B_ext.add(mask, be*sin(2*pi*f*t))
+Relax()
+SaveAs(m, "m_relaxed")
+TableAdd(m.Comp(0))
+TableAdd(m.Comp(1))
+TableAdd(m.Comp(2))
+TableAdd(m.Comp(0).Region(1))
+TableAdd(m.Comp(1).Region(1))
+TableAdd(m.Comp(2).Region(1))
+TableAdd(m.Comp(0).Region(2))
+TableAdd(m.Comp(1).Region(2))
+TableAdd(m.Comp(2).Region(2))
+tableautosave(0.2e-9)
+Run(50e-9)
+TableSave()
+//********************************************************************//
+//Please cite the following references, relevant for your simulation: //
+//See bibtex file in output folder for justification.                 //
+//********************************************************************//
+//   * Martinez-Losa del Rincón et al., Preprint arxiv (2024).
+//   * Vansteenkiste et al., AIP Adv. 4, 107133 (2014).
